@@ -5,16 +5,16 @@ import {Script, console} from "forge-std/Script.sol";
 import {TypeCasts} from "../contracts/libs/TypeCasts.sol";
 import {Message} from "../contracts/libs/Message.sol";
 import {TokenMessage} from "../contracts/token/libs/TokenMessage.sol";
-import {Quote} from "../contracts/interfaces/IValueTransferBridge.sol";
+import {Quote} from "../contracts/interfaces/ITokenBridge.sol";
 import {IMailbox} from "../contracts/interfaces/IMailbox.sol";
 import {IPostDispatchHook} from "../contracts/interfaces/hooks/IPostDispatchHook.sol";
-import {OPValueTransferBridgeNative} from "../contracts/token/extensions/OPValueTransferBridgeNative.sol";
+import {OPTokenBridgeNative} from "../contracts/token/extensions/OPTokenBridgeNative.sol";
 import {OPL2ToL1CcipReadHook} from "../contracts/hooks/OPL2ToL1CcipReadHook.sol";
 import {OPL2ToL1CcipReadIsm} from "../contracts/isms/hook/OPL2ToL1CcipReadIsm.sol";
 import {StaticAggregationHookFactory} from "../contracts/hooks/aggregation/StaticAggregationHookFactory.sol";
 import {StaticAggregationHook} from "../contracts/hooks/aggregation/StaticAggregationHook.sol";
 
-contract ValueTransferBridgeScript is Script {
+contract TokenBridgeScript is Script {
     using TypeCasts for address;
     // using Message for bytes;
     using TokenMessage for bytes;
@@ -51,27 +51,27 @@ contract ValueTransferBridgeScript is Script {
 
     function setHook(address payable vtb, address hook) public {
         vm.startBroadcast();
-        OPValueTransferBridgeNative(vtb).setHook(hook);
+        OPTokenBridgeNative(vtb).setHook(hook);
         vm.stopBroadcast();
     }
 
     function setIsm(address payable vtb, address ism) public {
         vm.startBroadcast();
-        OPValueTransferBridgeNative(vtb).setInterchainSecurityModule(ism);
+        OPTokenBridgeNative(vtb).setInterchainSecurityModule(ism);
         vm.stopBroadcast();
     }
 
-    function deployValueTransferBridge(
+    function deployTokenBridge(
         address _l2Bridge,
         address _mailbox
     ) public returns (address) {
         vm.startBroadcast();
-        OPValueTransferBridgeNative vtb = new OPValueTransferBridgeNative(
+        OPTokenBridgeNative vtb = new OPTokenBridgeNative(
             destination,
             _l2Bridge,
             _mailbox
         );
-        console.log("ValueTransferBridgeNative @", address(vtb));
+        console.log("TokenBridgeNative @", address(vtb));
         vm.stopBroadcast();
 
         return address(vtb);
@@ -104,7 +104,7 @@ contract ValueTransferBridgeScript is Script {
         address router
     ) public {
         vm.startBroadcast();
-        OPValueTransferBridgeNative(vtb).enrollRemoteRouter(
+        OPTokenBridgeNative(vtb).enrollRemoteRouter(
             domain,
             router.addressToBytes32()
         );
@@ -124,17 +124,14 @@ contract ValueTransferBridgeScript is Script {
         return address(ism);
     }
 
-    function deployDestination()
-        public
-        returns (OPValueTransferBridgeNative vtb)
-    {
+    function deployDestination() public returns (OPTokenBridgeNative vtb) {
         vm.startBroadcast();
-        vtb = new OPValueTransferBridgeNative(
+        vtb = new OPTokenBridgeNative(
             destination,
             address(0),
             mailboxDestination
         );
-        console.log("ValueTransferBridgeNative @", address(vtb));
+        console.log("TokenBridgeNative @", address(vtb));
         vm.stopBroadcast();
     }
 
@@ -145,7 +142,7 @@ contract ValueTransferBridgeScript is Script {
         uint256 amount
     ) public returns (bytes32 messageId) {
         vm.startBroadcast();
-        OPValueTransferBridgeNative vtb = OPValueTransferBridgeNative(_vtb);
+        OPTokenBridgeNative vtb = OPTokenBridgeNative(_vtb);
         bytes32 recipient = _recipient.addressToBytes32();
         Quote[] memory quotes = vtb.quoteTransferRemote(
             destination,
@@ -172,12 +169,11 @@ contract ValueTransferBridgeScript is Script {
         address ism = vm.addr(2);
         (address payable vtb, address hook) = deployAllOrigin(remoteVtb, ism);
 
-        Quote[] memory quotes = OPValueTransferBridgeNative(vtb)
-            .quoteTransferRemote(
-                destination,
-                recipient.addressToBytes32(),
-                amount
-            );
+        Quote[] memory quotes = OPTokenBridgeNative(vtb).quoteTransferRemote(
+            destination,
+            recipient.addressToBytes32(),
+            amount
+        );
 
         bytes32 messageId = transferRemote(
             payable(vtb),
@@ -194,12 +190,12 @@ contract ValueTransferBridgeScript is Script {
         address remoteRouter,
         address proveWithdrawalIsm
     ) public returns (address payable vtb, address hook) {
-        vtb = payable(deployValueTransferBridge(l2Bridge, mailboxOrigin));
+        vtb = payable(deployTokenBridge(l2Bridge, mailboxOrigin));
         enrollRouter(vtb, destination, remoteRouter);
         hook = deployHook(proveWithdrawalIsm, igpOrigin);
 
         vm.startBroadcast();
-        OPValueTransferBridgeNative(vtb).setHook(hook);
+        OPTokenBridgeNative(vtb).setHook(hook);
         vm.stopBroadcast();
 
         console.log("vtb @ ", vtb);
@@ -210,13 +206,11 @@ contract ValueTransferBridgeScript is Script {
         public
         returns (address payable vtb, address ism)
     {
-        vtb = payable(
-            deployValueTransferBridge(address(0), mailboxDestination)
-        );
+        vtb = payable(deployTokenBridge(address(0), mailboxDestination));
         ism = deployIsm();
 
         vm.startBroadcast();
-        OPValueTransferBridgeNative(vtb).setInterchainSecurityModule(ism);
+        OPTokenBridgeNative(vtb).setInterchainSecurityModule(ism);
         vm.stopBroadcast();
 
         console.log("vtb @", vtb);
